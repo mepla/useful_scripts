@@ -1,0 +1,172 @@
+#!/bin/bash
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    *)
+    POSITIONAL+=("$1")
+    shift
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}"
+
+repeat_str () {
+   str=$1
+   num=$2
+   v=$(printf "%-${num}s" "$str")
+   echo "${v// /$str}"
+}
+
+print_section_separator () {
+  chrlen=$(echo -n $1 | wc -m)
+  echo
+  repeat_str "#" $chrlen
+  echo $1
+  repeat_str "#" $chrlen 
+  echo
+}
+
+install_prerequisites () {
+  print_section_separator "Starting Debian prerequisite package installations..."
+  pre_packages="vim htop nload git python2.7 python2.7-dev python-pip python-virtualenv build-essential sudo curl wget"
+  apt-get update
+  apt-get install -y $pre_packages
+}
+
+install_python_packages () {
+  print_section_separator "Starting Python package installations..."
+  py_packages="speedtest-cli"
+  pip install $py_packages
+}
+
+create_user () {
+  print_section_separator "Starting user creation process..."
+  read -p "Please enter the username you want to create (leave empty to skip): " user_to_add
+  [ "$user_to_add" ] || return 0
+
+  read -p "Adde user $user_to_add to sudoers list? (y/n): " add_sudo
+  [ "$add_sudo" == "y" ] && add_sudo=true || add_sudo=false
+
+  adduser $user_to_add --disabled-password
+
+  mkdir /home/$user_to_add/.ssh
+
+  touch /home/$user_to_add/.ssh/authorized_keys
+
+  chown -R $user_to_add:$user_to_add /home/$user_to_add/.ssh
+
+  [ $add_sudo == true ] && echo "Adding user to sudoers list..." && touch /etc/sudoers.d/$user_to_add && echo "$user_to_add ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$user_to_add
+
+  read -p "Please enter a url to download a public key or enter the public key to add for user (leave empty to skip): " pub_key
+
+  [ "$pub_key" == "" ] && return 0
+
+  echo $pub_key > /tmp/tmp_pub_key
+
+  ssh-keygen -l -f /tmp/tmp_pub_key || wget $pub_key -O /tmp/tmp_pub_key
+  ssh-keygen -l -f /tmp/tmp_pub_key && mv /tmp/tmp_pub_key /home/$user_to_add/.ssh/authorized_keys || echo "Your input was not a valid key or a link to a valid key, Please update /home/$user_to_add/.ssh/authorized_keys to contain an appropriate ssh public key."
+
+  rm /tmp/tmp_pub_key >> /dev/null 2>&1
+
+}
+
+check_update_kernel () {
+  echo
+  uname -r | grep -E "^3\..*" >> /dev/null && read -p "Your kernel version is $(uname -r), it is strongly recommened to update kernel to version 4 since Docker has serious issues with version 3 kernel. Should I update kernel using jessie-backports? (Y/n): " up_kernel || return 1
+
+  if [ "$up_kernel" == "n" ] || [ "$up_kernel" == "N" ]
+    then
+      echo "Ok, I'm not gonna update kernel, but its on you!"
+      return 1
+  fi
+
+  up_kernel="y"
+  echo "deb http://mirror.one.com/debian/ jessie-backports main contrib non-free" >> /etc/apt/sources.list
+  apt-get update
+  apt-get upgrade
+  apt-get install -y -t jessie-backports linux-image-amd64
+  [ -f "/etc/docker/daemon.json" ] && echo "/etc/docker/daemon.json already exists, please make sure that there is a \"storage-driver\": \"overlay2\" in it..." || echo '{"storage-driver": "overlay2"}' >> /etc/docker/daemon.json
+}
+
+docker_install () {
+  # This process is extracted from https://docs.docker.com/engine/installation/linux/docker-ce/debian/#install-docker-ce-1
+  apt-get update
+  apt-get install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+  curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") $(lsb_release -cs) stable"
+  apt-get update
+
+  apt-get install -y docker-ce
+
+  [ -f "/etc/docker/daemon.json" ] && echo "/etc/docker/daemon.json already exists, please make sure that there is a \"storage-driver\": \"overlay2\" in it..." || echo '{"storage-driver": "overlay2"}' >> /etc/docker/daemon.json
+
+  /etc/init.d/docker restart
+}
+
+check_install_docker () {
+  print_section_separator "Starting Docker install and setup..."
+
+  dpkg -l docker-ce >> /dev/null 2>&1
+  if [ $? -eq 0 ]
+    then
+      echo "Docker CE already installed."
+    else
+      echo "Installing Docker CE..."
+      check_update_kernel
+      docker_install
+      mkdir -p /usr/local/docker
+  fi
+  echo
+}
+
+setup_vim () {
+  print_section_separator "Starting vim setup..."
+  if [ -f ~/.vimrc ]
+    then
+      mv ~/.vimrc ~/.vimrc.old
+      echo "~/.vimrc moved to ~/.vimrc.old"
+  fi
+  touch ~/.vimrc
+      
+  echo 'syntax on
+colorscheme default
+set number  " Show line numbers
+set linebreak   " Break lines at word (requires Wrap lines)
+set textwidth=100   " Line wrap (number of cols)
+set showmatch   " Highlight matching brace
+set visualbell  " Use visual bell (no beeping)
+set paste
+
+set hlsearch    " Highlight all search results
+set smartcase   " Enable smart-case search
+set ignorecase  " Always case-insensitive
+set incsearch   " Searches for strings incrementally
+
+set autoindent  " Auto-indent new lines
+set shiftwidth=2    " Number of auto-indent spaces
+set smartindent " Enable smart-indent
+set smarttab    " Enable smart-tabs
+set softtabstop=2   " Number of spaces per Tab
+
+set ruler   " Show row and column ruler information
+
+set undolevels=1000 " Number of undo levels
+set backspace=indent,eol,start  " Backspace behaviour' >> ~/.vimrc
+  echo "Updated ~/.vimrc"
+}
+
+main () {
+  print_section_separator "Starting machine bootstrap..."
+  
+  install_prerequisites
+  setup_vim
+  install_python_packages
+  create_user
+  check_install_docker
+}
+
+main
