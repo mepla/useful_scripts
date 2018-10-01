@@ -26,7 +26,7 @@ print_section_separator () {
   echo
   repeat_str "#" $chrlen
   echo $1
-  repeat_str "#" $chrlen 
+  repeat_str "#" $chrlen
   echo
 }
 
@@ -159,7 +159,7 @@ echo
 
 
 clone_dehydrated () {
-  print_section_separator "Setting up dehydrated and cloudflare hook..."  
+  print_section_separator "Setting up dehydrated and cloudflare hook..."
 
   cd /usr/local/
   git clone https://github.com/lukas2511/dehydrated
@@ -168,12 +168,13 @@ clone_dehydrated () {
   mkdir hooks
   cd hooks
   git clone https://github.com/kappataumu/letsencrypt-cloudflare-hook cloudflare
+  pip uninstall pyopenssl dnspython
   apt-get install build-essential libssl-dev libffi-dev python-dev
-  ##pip install -r /usr/local/dehydrated/hooks/cloudflare/requirements-python-2.txt
-  pip install pyopenssl six cryptography 
+  pip install -r /usr/local/dehydrated/hooks/cloudflare/requirements-python-2.txt
+  pip install pyopenssl six cryptographyi future tld dnspython
   mkdir -p /etc/dehydrated
   touch /etc/dehydrated/domains.txt
-  
+
   write_dehydrated_config
 
   /usr/local/dehydrated/dehydrated --register --accept-terms
@@ -184,7 +185,7 @@ clone_dehydrated () {
 }
 
 main () {
-  clone_dehydrated  
+  clone_dehydrated
 }
 
 main
