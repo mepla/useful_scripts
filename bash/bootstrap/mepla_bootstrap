@@ -32,7 +32,7 @@ print_section_separator () {
 
 install_prerequisites () {
   print_section_separator "Starting Debian prerequisite package installations..."
-  pre_packages="vim htop nload git python2.7 python2.7-dev python-pip python-virtualenv build-essential sudo curl wget"
+  pre_packages="vim htop nload git python2.7 python2.7-dev python-pip python-virtualenv build-essential sudo curl wget apt-transport-https"
   apt-get update
   apt-get install -y $pre_packages
 }
