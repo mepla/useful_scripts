@@ -28,7 +28,7 @@
 #       imageName: windows-latest
 
 pool:
-  vmImage: macOS-latest
+  vmImage: ubuntu-latest
 
 steps:
   - script: bazel version
