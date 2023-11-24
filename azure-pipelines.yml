@@ -18,17 +18,17 @@
 #     echo See https://aka.ms/yaml
 #   displayName: 'Run a multi-line script'
 
-strategy:
-  matrix:
-    linux:
-      imageName: ubuntu-latest
-    mac:
-      imageName: macOS-latest
-    windows:
-      imageName: windows-latest
+# strategy:
+#   matrix:
+#     linux:
+#       imageName: ubuntu-latest
+#     mac:
+#       imageName: macOS-latest
+#     windows:
+#       imageName: windows-latest
 
 pool:
-  vmImage: $(imageName)
+  vmImage: macOS-latest
 
 steps:
   - script: bazel version
